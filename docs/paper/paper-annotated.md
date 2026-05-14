@@ -4,9 +4,9 @@
   @title: 0DTE Trading Rules: Tail Risk, Implementation, and Tactical Timing
   @type: academic-paper
   @core-question: We study realized payoffs of S&P500 zero-days-to-expiration (0DTE) options and standard multi-leg structures from...
-  @core-answer: Unconditional 0DTE is weak after costs; conditional OOS rules for selected strategies deliver SR 1.0-1.3
+  @core-answer: 
   @keywords: 0DTE, tactical overlay, tail risk, out-of-sample timing, option implementation, volatility trading
-  @datasets: Cboe 30-min SPXW bars (2016-2026), ThetaData 1-min SPX/VIX bars
+  @datasets: 
   @key-equations: (eq:is)-(eq:vrp)
   @key-tables: 15 tables (tab:0dte_strat_ret, tab:0dte_stratret2022_2023, tab:0dte_stratret2024_2026, tab:cond_feature_dictionary, tab:cond_model_zoo...)
   @key-figures: 13 figures (fig:cond_oos_investment_ts, fig:optprices, fig:optret, fig:optret-1300, fig:optret-1500...)
@@ -49,8 +49,8 @@ horizons its economic magnitude is small. Second, strategy-level payoff distribu
 tail-heavy, and unstable across regimes; for many structures, downside risk is large relative to
 average carry. Third, conditional timing works better when formulated as directional classification
 than when posed as direct return prediction. In the conditional out-of-sample (OOS) implementation,
-put ratio spreads reach a net Sharpe ratio of 1.26, iron butterfly structures reach 0.82, and
-diversified equal-weight baskets reach net Sharpe ratios between 1.01 and 1.27.
+put ratio spreads reach a gross Sharpe ratio of 1.18 (0.93 net of costs), and diversified equal-
+weight baskets reach net Sharpe ratios around 0.82.
 
 For practitioners, these findings imply a fairly narrow use case. Unconditional 0DTE exposure is
 difficult to justify as a standing allocation once one accounts for realistic execution and downside
@@ -843,8 +843,14 @@ $t-1$ only, with either expanding or 252-day rolling windows; predictors are sta
 training window, and the logistic model is estimated with L2 regularization. We then form $\hat
 p_{s,t}$, trade with $sign(\hat p_{s,t}-0.5)$, and report OOS diagnostics.
 
-> **Table** (tab:cond_oos): **Strategy-Level OOS Timing Performance at 10:00 ET.** Each strategy is estimated separately with a logistic benchmark on the representative moneyness configuration (Table [tab:cond_rep_moneyness]), using only 10:00 ET information: contemporaneous implied/state variables, lagged realized variables, and lagged strategy-PNL terms. No cross-strategy pooling is used in this table; each row is one strategy under one protocol. We report two window rules (expanding and rolling, minimum 252 trading days). Directional signal is $sign(\hat{p}_t-0.5)$ and net daily strategy return is this sign times strategy PNL net of half-spread and 0.5bp. OOS forecasts begin after the 252-day burn-in in April 2019 and run through 01/2026. Reported columns are hit rate (%), Brier score, calibration slope, mean net PNL (bps), annualized SR net, and OOS observations.
+> **Table** (tab:cond_oos): **Strategy-Level OOS Timing Performance at 10:00 ET.**\footnotemark Each strategy is estimated separately with a logistic benchmark on the representative moneyness configuration (Table [tab:cond_rep_moneyness]), using only 10:00 ET information: contemporaneous implied/state variables, lagged realized variables, and lagged strategy-PNL terms. No cross-strategy pooling is used in this table; each row is one strategy under one protocol. We report two window rules (expanding and rolling, minimum 252 trading days). Directional signal is $sign(\hat{p}_t-0.5)$; gross daily strategy return is the sign times the raw underlying return; net return further subtracts half-spread cost and 0.5 bp regardless of direction. OOS forecasts begin after the 252-day burn-in in April 2019 and run through 01/2026. Reported columns are hit rate (%), Brier score, calibration slope, mean gross PNL (bps), annualized SR gross, mean net PNL (bps), annualized SR net, and OOS observations.
 > Source: `tables/ 0dte_conditional_oos.tex`
+
+\footnotetext{An earlier version of this table applied transaction costs incorrectly on short days:
+directional net PNL was computed as $sign \times \mathit{PNL}^{net}$, which flips the sign of costs
+when $sign=-1$. The corrected formula is $sign \times r^{gross} - c$, where
+$c=\frac{1}{2}\mathit{spread}+0.5$ bp. We thank Victor Yoong
+(\href{https://github.com/victoryg739}{victoryg739}) for identifying this error.}
 
 Table [tab:cond_model_zoo] shows a clear ranking of target designs. Direct return prediction remains
 weak in this short-horizon setting: only the Elastic Net and LightGBM regressions stay modestly
@@ -856,12 +862,14 @@ and treat soft mapping as robustness. For strategy-level tests, we retain the lo
 because it remains stable across mappings and provides transparent probability diagnostics.
 
 Table [tab:cond_oos] shows that the fixed logistic benchmark delivers economically meaningful
-strategy-specific OOS results under both the expanding and rolling protocols. Put ratio spreads are
-the strongest individual series, with 2.58 bps mean net and an SR of 1.26 in the expanding
-specification. Strangle/straddle structures remain positive, although more modest once the 2025--
-2026 extension is included. Iron butterfly/condor structures still retain an attractive Sharpe ratio
-of 0.82. Other strategies are weaker, and call ratio spreads remain unattractive. Conditioning
-therefore helps, but selectively rather than uniformly.
+strategy-specific OOS results under both the expanding and rolling protocols, but the margin over
+costs is thinner than gross performance suggests. Put ratio spreads are the strongest individual
+series, with a gross SR of 1.18 (0.93 net) in the expanding specification. Strangle/straddle
+structures remain positive (SR gross 0.56, net 0.39). Iron butterfly/condor structures show a
+positive gross SR of 0.77 but turn negative after costs ($-0.20$), illustrating the importance of
+the gross--net decomposition. Other strategies are weaker, and call ratio spreads remain
+unattractive. Conditioning therefore helps, but selectively rather than uniformly, and the practical
+value of a directional signal depends critically on the cost regime.
 
 <!-- @section-type: conditional
   @key-claim: To translate Table [tab:cond_oos] into an investable object, we construct daily OOS strategy returns from the same strategy-specific logistic benchmark signals using a common rolling-window...
@@ -879,7 +887,7 @@ from the same strategy-specific logistic benchmark signals using a common rollin
 rule (252-trading-day window) for all strategies. The strategy signal is then applied to the same
 representative moneyness configuration and net-PNL definition as in Table [tab:cond_oos].
 
-> **Table** (tab:cond_oos_investment): **Portfolio Implementation of OOS Strategy Signals.** For each strategy, we use the same logistic benchmark as in Table [tab:cond_oos], estimated with a 252-trading-day rolling window. Daily strategy return is sign($\hat{p}_t-0.5$)$\times$net strategy PNL for the representative moneyness configuration. OOS forecasts begin after the 252-day burn-in in April 2019 and run through 01/2026. The table reports all strategy series and equal-weight baskets (top-three by mean net PNL, top-three by SR net, and all-strategies), with columns for mean net (bps), annualized SR net, hit rate (%), long share (%), ES$_{1%}$, worst day, max drawdown, and days.
+> **Table** (tab:cond_oos_investment): **Portfolio Implementation of OOS Strategy Signals.** For each strategy, we use the same logistic benchmark as in Table [tab:cond_oos], estimated with a 252-trading-day rolling window. Gross daily strategy return is sign($\hat{p}_t-0.5$)$\times$raw underlying return; net return further subtracts half-spread cost and 0.5 bp regardless of direction. OOS forecasts begin after the 252-day burn-in in April 2019 and run through 01/2026. The table reports all strategy series and equal-weight baskets (top-three by mean net PNL, top-three by SR net, and all-strategies), with columns for mean gross/net PNL (bps), annualized SR gross/net, hit rate (%), long share (%), ES$_{1%}$, worst day, max drawdown, and days.
 > Source: `tables/ 0dte_conditional_oos_investment.tex`
 
 > **Figure** (fig:cond_oos_investment_ts): **Cumulative Net PNL of OOS Strategy Sleeves and Baskets.** Panel A plots cumulative net PNL (bps) for all individual strategy series. Panel B plots three equal-weight baskets built from the same strategy-level series: top-three selected by mean net PNL, top-three selected by SR net, and all-strategies basket. Each strategy uses the same logistic benchmark as in Table [tab:cond_oos], estimated with a 252-trading-day rolling window.
@@ -888,15 +896,17 @@ representative moneyness configuration and net-PNL definition as in Table [tab:c
 
 Table [tab:cond_oos_investment] and Figure [fig:cond_oos_investment_ts] show the strategy-specific
 implementation directly implied by Table [tab:cond_oos]. Diversification still matters in the
-extended sample. The top-three basket ranked by SR net reaches a net Sharpe ratio of 1.27, the top-
-three basket ranked by mean net PNL reaches 1.17, and even the all-strategies basket reaches 1.01.
-Equal weighting does not eliminate tail risk, but it materially smooths strategy-specific drawdowns
-and makes the conditional evidence easier to interpret as a tradable object rather than a collection
-of isolated strategy series. From an implementation standpoint, this basket evidence is at least as
-important as the single-strategy ranking. A professional user is more likely to allocate a modest
-risk budget across a governed sleeve than to concentrate on one ratio-spread signal. The diversified
-baskets therefore provide the more realistic benchmark for portfolio use, even if they do not remove
-tail risk altogether.
+extended sample. The top-three basket (by either mean PNL or SR) reaches a gross SR of 1.12 and a
+net SR of 0.82; the all-strategies basket reaches a gross SR of 0.81 (net 0.25). The gross--net gap
+highlights that a directional signal delivering positive gross alpha can still underperform after
+realistic friction, reinforcing the importance of cost-aware evaluation. Equal weighting does not
+eliminate tail risk, but it materially smooths strategy-specific drawdowns and makes the conditional
+evidence easier to interpret as a tradable object rather than a collection of isolated strategy
+series. From an implementation standpoint, this basket evidence is at least as important as the
+single-strategy ranking. A professional user is more likely to allocate a modest risk budget across
+a governed sleeve than to concentrate on one ratio-spread signal. The diversified baskets therefore
+provide the more realistic benchmark for portfolio use, even if they do not remove tail risk
+altogether.
 
 <!-- @section-type: conclusion
   @key-claim: This paper studies realized payoff distributions of 0DTE SPXW options and common multi-leg strategy templates from 09/2016 to 01/2026. A positive 0DTE variance risk premium exists, but at same-day...
@@ -932,14 +942,14 @@ At the same time, the conditional evidence is stronger than a purely pessimistic
 suggest. The main economic link runs through directional asymmetry and skewness rather than through
 realized variance alone (Tables [tab:strat_ret_expl] and [tab:inference_cluster_mht]). When the
 forecasting problem is posed as directional classification and evaluated under strict out-of-sample
-discipline, several strategy-specific rules remain attractive after costs. In the updated benchmark,
-put ratio spreads reach a net Sharpe ratio of 1.26 and iron butterfly/condor structures 0.82 in
-Table [tab:cond_oos]; at the portfolio level, the top-three-by-SR basket reaches 1.27 and the all-
-strategies basket reaches 1.01 in Table [tab:cond_oos_investment]. The evidence is therefore
-selective rather than diffuse: some strategy families can be timed meaningfully, many others cannot.
-The practical implication is not that every 0DTE strategy can be forecast, but that a small subset
-can be deployed more intelligently when signals are transparent, estimation is disciplined, and
-implementation remains diversified.
+discipline, several strategy-specific rules generate positive gross alpha, though the margin after
+costs is thinner. In the updated benchmark, put ratio spreads reach a gross SR of 1.18 (0.93 net) in
+Table [tab:cond_oos]; at the portfolio level, the top-three basket reaches a gross SR of 1.12 (0.82
+net) in Table [tab:cond_oos_investment]. The evidence is therefore selective rather than diffuse:
+some strategy families can be timed meaningfully, many others cannot. The practical implication is
+not that every 0DTE strategy can be forecast, but that a small subset can be deployed more
+intelligently when signals are transparent, estimation is disciplined, and implementation remains
+diversified.
 
 The main limitation of the paper is scope. We study SPXW 0DTE positions held to the close, without
 dynamic intraday hedging and without a causal market-impact design. Our conditioning variables are
