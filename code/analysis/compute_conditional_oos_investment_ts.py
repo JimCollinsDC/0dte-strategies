@@ -258,10 +258,11 @@ def make_strategy_summary(
         if temp.empty:
             continue
         temp_sign = sign_daily[sign_daily["option_type"] == strategy].copy()
-        s = temp["dir_pnl_net"]
-        cum = s.cumsum() * 100.0  # bps cumulative
-        q01 = s.quantile(0.01)
-        es1 = s[s <= q01].mean() if s.notna().any() else np.nan
+        s_net = temp["dir_pnl_net"]
+        s_gross = temp["dir_pnl_gross"] if "dir_pnl_gross" in temp.columns else s_net
+        cum = s_net.cumsum() * 100.0  # bps cumulative
+        q01 = s_net.quantile(0.01)
+        es1 = s_net[s_net <= q01].mean() if s_net.notna().any() else np.nan
         long_share = np.nan
         if not temp_sign.empty:
             long_share = float((temp_sign["sign"].astype(float) > 0).mean())
@@ -271,12 +272,14 @@ def make_strategy_summary(
                 "strategy": strategy,
                 "strategy_label": STRATEGY_LABELS.get(strategy, strategy),
                 "days": int(temp["quote_date"].nunique()),
-                "mean_net_bp": float(s.mean() * 100.0),
-                "sr_net": annualized_sharpe(s),
-                "hit_rate": float((s > 0).mean()),
+                "mean_gross_bp": float(s_gross.mean() * 100.0),
+                "sr_gross": annualized_sharpe(s_gross),
+                "mean_net_bp": float(s_net.mean() * 100.0),
+                "sr_net": annualized_sharpe(s_net),
+                "hit_rate": float((s_net > 0).mean()),
                 "long_share": long_share,
                 "es1_bp": float(es1 * 100.0) if pd.notna(es1) else np.nan,
-                "worst_day_bp": float(s.min() * 100.0),
+                "worst_day_bp": float(s_net.min() * 100.0),
                 "max_drawdown_bp": _max_drawdown(cum),
             }
         )
@@ -306,9 +309,10 @@ def select_top_strategies(
 
 
 def make_basket_daily(daily: pd.DataFrame, selected: list[str], option_type: str) -> pd.DataFrame:
+    pnl_cols = ["dir_pnl_gross", "dir_pnl_net"] if "dir_pnl_gross" in daily.columns else ["dir_pnl_net"]
     return (
         daily[daily["option_type"].isin(selected)]
-        .groupby("quote_date", as_index=False)["dir_pnl_net"]
+        .groupby("quote_date", as_index=False)[pnl_cols]
         .mean()
         .assign(option_type=option_type)
     )
@@ -320,9 +324,10 @@ def summarize_basket(
     strategy: str,
     strategy_label: str,
 ) -> pd.Series:
-    series = basket_daily["dir_pnl_net"]
-    cum = series.cumsum() * 100.0
-    q01 = series.quantile(0.01)
+    s_net = basket_daily["dir_pnl_net"]
+    s_gross = basket_daily["dir_pnl_gross"] if "dir_pnl_gross" in basket_daily.columns else s_net
+    cum = s_net.cumsum() * 100.0
+    q01 = s_net.quantile(0.01)
     long_share = np.nan
     if not basket_sign_daily.empty:
         long_share = float(basket_sign_daily["long_frac"].mean())
@@ -331,12 +336,14 @@ def summarize_basket(
             "strategy": strategy,
             "strategy_label": strategy_label,
             "days": int(basket_daily["quote_date"].nunique()),
-            "mean_net_bp": float(series.mean() * 100.0),
-            "sr_net": annualized_sharpe(series),
-            "hit_rate": float((series > 0).mean()),
+            "mean_gross_bp": float(s_gross.mean() * 100.0),
+            "sr_gross": annualized_sharpe(s_gross),
+            "mean_net_bp": float(s_net.mean() * 100.0),
+            "sr_net": annualized_sharpe(s_net),
+            "hit_rate": float((s_net > 0).mean()),
             "long_share": long_share,
-            "es1_bp": float(series[series <= q01].mean() * 100.0),
-            "worst_day_bp": float(series.min() * 100.0),
+            "es1_bp": float(s_net[s_net <= q01].mean() * 100.0),
+            "worst_day_bp": float(s_net.min() * 100.0),
             "max_drawdown_bp": _max_drawdown(cum),
         }
     )
@@ -350,39 +357,40 @@ def write_table_tex(
     output_file: Path,
     top_k: int,
 ) -> None:
-    lines = [
-        r"\begin{tabular}{lrrrrrrrr}",
-        r"\toprule",
-        r"Strategy & Mean Net (bps) & SR Net & Hit Rate (\%) & Long Share (\%) & ES$_{1\%}$ (bps) & Worst Day (bps) & Max DD (bps) & Days \\",
-        r"\midrule",
-    ]
+    has_gross = "mean_gross_bp" in summary_df.columns
+    if has_gross:
+        col_spec = r"\begin{tabular}{lrrrrrrrrrrr}"
+        header = (r"Strategy & Mean Gross (bps) & SR Gross & Mean Net (bps) & SR Net & "
+                  r"Hit Rate (\%) & Long Share (\%) & ES$_{1\%}$ (bps) & Worst Day (bps) & Max DD (bps) & Days \\")
+    else:
+        col_spec = r"\begin{tabular}{lrrrrrrrr}"
+        header = (r"Strategy & Mean Net (bps) & SR Net & Hit Rate (\%) & Long Share (\%) & "
+                  r"ES$_{1\%}$ (bps) & Worst Day (bps) & Max DD (bps) & Days \\")
+
+    lines = [col_spec, r"\toprule", header, r"\midrule"]
+
+    def _g(d, key):
+        try:
+            return d[key]
+        except (KeyError, TypeError):
+            return getattr(d, key)
+
+    def _row_line(label: str, d) -> str:
+        gross_part = ""
+        if has_gross:
+            gross_part = f" & {_fmt(_g(d,'mean_gross_bp'),3)} & {_fmt(_g(d,'sr_gross'),2)}"
+        return (f"{label}{gross_part} & {_fmt(_g(d,'mean_net_bp'),3)} & {_fmt(_g(d,'sr_net'),2)} & "
+                f"{_fmt(float(_g(d,'hit_rate')) * 100.0,1)} & {_fmt(float(_g(d,'long_share')) * 100.0,1)} & "
+                f"{_fmt(_g(d,'es1_bp'),2)} & {_fmt(_g(d,'worst_day_bp'),2)} & "
+                f"{_fmt(_g(d,'max_drawdown_bp'),2)} & {int(_g(d,'days'))} \\\\")
 
     for row in summary_df.itertuples(index=False):
-        lines.append(
-            f"{row.strategy_label} & {_fmt(row.mean_net_bp,3)} & {_fmt(row.sr_net,2)} & "
-            f"{_fmt(row.hit_rate * 100.0,1)} & {_fmt(row.long_share * 100.0,1)} & {_fmt(row.es1_bp,2)} & {_fmt(row.worst_day_bp,2)} & "
-            f"{_fmt(row.max_drawdown_bp,2)} & {int(row.days)} \\\\"
-        )
+        lines.append(_row_line(row.strategy_label, row))
 
     lines.append(r"\midrule")
-    lines.append(
-        f"Equal-weight basket (Top {int(top_k)} by Mean PNL) & {_fmt(basket_top_row['mean_net_bp'],3)} & {_fmt(basket_top_row['sr_net'],2)} & "
-        f"{_fmt(float(basket_top_row['hit_rate']) * 100.0,1)} & {_fmt(float(basket_top_row['long_share']) * 100.0,1)} & {_fmt(basket_top_row['es1_bp'],2)} & "
-        f"{_fmt(basket_top_row['worst_day_bp'],2)} & {_fmt(basket_top_row['max_drawdown_bp'],2)} & "
-        f"{int(basket_top_row['days'])} \\\\"
-    )
-    lines.append(
-        f"Equal-weight basket (Top {int(top_k)} by SR) & {_fmt(basket_top_sr_row['mean_net_bp'],3)} & {_fmt(basket_top_sr_row['sr_net'],2)} & "
-        f"{_fmt(float(basket_top_sr_row['hit_rate']) * 100.0,1)} & {_fmt(float(basket_top_sr_row['long_share']) * 100.0,1)} & {_fmt(basket_top_sr_row['es1_bp'],2)} & "
-        f"{_fmt(basket_top_sr_row['worst_day_bp'],2)} & {_fmt(basket_top_sr_row['max_drawdown_bp'],2)} & "
-        f"{int(basket_top_sr_row['days'])} \\\\"
-    )
-    lines.append(
-        f"Equal-weight basket (All) & {_fmt(basket_all_row['mean_net_bp'],3)} & {_fmt(basket_all_row['sr_net'],2)} & "
-        f"{_fmt(float(basket_all_row['hit_rate']) * 100.0,1)} & {_fmt(float(basket_all_row['long_share']) * 100.0,1)} & {_fmt(basket_all_row['es1_bp'],2)} & "
-        f"{_fmt(basket_all_row['worst_day_bp'],2)} & {_fmt(basket_all_row['max_drawdown_bp'],2)} & "
-        f"{int(basket_all_row['days'])} \\\\"
-    )
+    lines.append(_row_line(f"Equal-weight basket (Top {int(top_k)} by Mean PNL)", basket_top_row))
+    lines.append(_row_line(f"Equal-weight basket (Top {int(top_k)} by SR)", basket_top_sr_row))
+    lines.append(_row_line("Equal-weight basket (All)", basket_all_row))
 
     lines.extend([r"\bottomrule", r"\end{tabular}"])
 
@@ -527,12 +535,12 @@ def main() -> int:
         if anchor_pred.empty:
             raise RuntimeError("Anchor spec produced no prediction rows.")
 
-        anchor_pred["dir_pnl_net"] = (
+        anchor_pred["dir_pnl_gross"] = (
             anchor_pred["sign"].astype(float) * anchor_pred["y"].astype(float)
-            - float(args.net_cost)
         )
+        anchor_pred["dir_pnl_net"] = anchor_pred["dir_pnl_gross"] - float(args.net_cost)
         daily = (
-            anchor_pred.groupby(["quote_date", "option_type"], as_index=False)["dir_pnl_net"]
+            anchor_pred.groupby(["quote_date", "option_type"], as_index=False)[["dir_pnl_gross", "dir_pnl_net"]]
             .mean()
             .sort_values(["option_type", "quote_date"])
         )
@@ -590,8 +598,9 @@ def main() -> int:
         if pred_sel.empty:
             raise RuntimeError("No strategy-specific Table-9 predictions after protocol selection.")
 
+        pnl_cols = ["dir_pnl_gross", "dir_pnl_net"] if "dir_pnl_gross" in pred_sel.columns else ["dir_pnl_net"]
         daily = (
-            pred_sel.groupby(["quote_date", "option_type"], as_index=False)["dir_pnl_net"]
+            pred_sel.groupby(["quote_date", "option_type"], as_index=False)[pnl_cols]
             .mean()
             .sort_values(["option_type", "quote_date"])
         )

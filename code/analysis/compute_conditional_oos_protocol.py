@@ -311,6 +311,7 @@ def run_protocol(
                 "y": float(y[i]),
                 "sign": sign,
                 "pnl_net": pnl[i],
+                "dir_pnl_gross": sign * gross[i],
                 "dir_pnl_net": sign * gross[i] - cost[i],
             }
         )
@@ -324,6 +325,8 @@ def run_protocol(
     hit_rate = float((pred_df["sign"].to_numpy(dtype=float) == sign_true).mean())
     brier = float(np.mean((pred_df["p_hat"].to_numpy(dtype=float) - y_bin) ** 2))
     slope = calibr_slope(y_true=y_bin, p_hat=pred_df["p_hat"].to_numpy(dtype=float))
+    mean_gross = float(pred_df["dir_pnl_gross"].mean())
+    sr_gross = float(annualized_sharpe(pred_df["dir_pnl_gross"]))
     mean_net = float(pred_df["dir_pnl_net"].mean())
     sr_net = float(annualized_sharpe(pred_df["dir_pnl_net"]))
 
@@ -331,7 +334,9 @@ def run_protocol(
         "hit_rate": hit_rate,
         "brier": brier,
         "calib_slope": slope,
-        "mean_net_bp": mean_net * 100.0,  # pnl is in % of underlying; convert to bps.
+        "mean_gross_bp": mean_gross * 100.0,
+        "sr_gross": sr_gross,
+        "mean_net_bp": mean_net * 100.0,
         "sr_net": sr_net,
         "obs": int(len(pred_df)),
     }
@@ -363,15 +368,16 @@ def write_representative_moneyness_latex(selected: pd.DataFrame, output_file: Pa
 
 def write_latex(rows: list[dict[str, str]], output_file: Path) -> None:
     lines = [
-        r"\begin{tabular}{llrrrrrr}",
+        r"\begin{tabular}{llrrrrrrrrr}",
         r"\toprule",
-        r"Strategy & Protocol & Hit Rate (\%) & Brier & Calib. Slope & Mean Net (bps) & SR Net & N \\",
+        r"Strategy & Protocol & Hit Rate (\%) & Brier & Calib. Slope & Mean Gross (bps) & SR Gross & Mean Net (bps) & SR Net & N \\",
         r"\midrule",
     ]
     for row in rows:
         lines.append(
             f"{row['strategy']} & {row['protocol']} & {row['hit_rate']} & {row['brier']} & "
-            f"{row['calib_slope']} & {row['mean_net_bp']} & {row['sr_net']} & {row['obs']} \\\\"
+            f"{row['calib_slope']} & {row['mean_gross_bp']} & {row['sr_gross']} & "
+            f"{row['mean_net_bp']} & {row['sr_net']} & {row['obs']} \\\\"
         )
     lines.extend([r"\bottomrule", r"\end{tabular}"])
     output_file.parent.mkdir(parents=True, exist_ok=True)
@@ -470,6 +476,8 @@ def main() -> int:
                     "hit_rate": fmt(smry["hit_rate"] * 100.0, 1),
                     "brier": fmt(smry["brier"], 3),
                     "calib_slope": fmt(smry["calib_slope"], 2),
+                    "mean_gross_bp": fmt(smry["mean_gross_bp"], 3),
+                    "sr_gross": fmt(smry["sr_gross"], 2),
                     "mean_net_bp": fmt(smry["mean_net_bp"], 3),
                     "sr_net": fmt(smry["sr_net"], 2),
                     "obs": f"{smry['obs']:,}",
@@ -484,6 +492,8 @@ def main() -> int:
                     "hit_rate": float(smry["hit_rate"]),
                     "brier": float(smry["brier"]),
                     "calib_slope": float(smry["calib_slope"]),
+                    "mean_gross_bp": float(smry["mean_gross_bp"]),
+                    "sr_gross": float(smry["sr_gross"]),
                     "mean_net_bp": float(smry["mean_net_bp"]),
                     "sr_net": float(smry["sr_net"]),
                     "obs": int(smry["obs"]),
