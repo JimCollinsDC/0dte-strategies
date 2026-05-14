@@ -31,7 +31,7 @@ The paper studies whether S&P 500 zero-days-to-expiration (0DTE) options and mul
 
 2. **PNL is driven by directional skewness, not variance.** Realized skewness (RS) is a stronger driver than realized variance (RV) for most strategies. This means predicting *direction* matters more than predicting *volatility*.
 
-3. **Conditional timing works for selected strategies.** Under strict out-of-sample logistic classification, put ratio spreads achieve SR ≈ 1.26, iron butterflies ≈ 0.82, and top-3 baskets reach SR 1.01–1.27.
+3. **Conditional timing works for selected strategies.** Under strict out-of-sample logistic classification, put ratio spreads achieve SR gross ≈ 1.18 (net ≈ 0.93), and top-3 baskets reach SR gross ≈ 1.12 (net ≈ 0.82). The gross–net decomposition reveals that some strategies (e.g., iron butterfly) have positive signal value but are eaten by costs.
 
 ### Key Methodological Choices
 
@@ -129,7 +129,7 @@ The paper studies whether S&P 500 zero-days-to-expiration (0DTE) options and mul
 **Path A: "What does this paper find?" (5 minutes)**
 1. Abstract (p. 1): three findings + portfolio takeaway
 2. Figure 1 (VRP is small) → Table 1 (unconditional PNL is wide)
-3. Table 7 (OOS timing: selected strategies work) → Table 9 (baskets: SR 1.01–1.27)
+3. Table 7 (OOS timing: selected strategies work) → Table 9 (baskets: SR gross 1.12, net 0.82)
 4. §6 Conclusion: tactical overlay, not carry strategy
 
 **Path B: "Is unconditional 0DTE profitable?" (10 minutes)**

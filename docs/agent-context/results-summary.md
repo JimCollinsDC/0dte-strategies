@@ -45,22 +45,21 @@
 - Simple but not sufficient for implementation
 
 ### Strategy-Level OOS (Table 7)
-| Strategy | Protocol | Hit Rate | SR net | Mean net (bps) |
-|----------|----------|----------|--------|----------------|
-| Put Ratio Spread | Expanding | 69% | **1.26** | 2.58 |
-| Iron Butterfly/Condor | Expanding | 64% | **0.82** | 0.45 |
-| Strangle/Straddle | Expanding | 72% | 0.70 | 2.17 |
-| Risk Reversal | Expanding | 75% | -0.09 | -0.37 |
-| Bull Call Spread | Expanding | 58% | 0.21 | 0.28 |
-| Bear Put Spread | Expanding | 64% | 0.36 | 0.47 |
-| Call Ratio Spread | Expanding | 59% | -0.13 | -0.32 |
+| Strategy | Protocol | Hit Rate | SR gross | SR net | Mean net (bps) |
+|----------|----------|----------|----------|--------|----------------|
+| Put Ratio Spread | Expanding | 67% | **1.18** | **0.93** | 1.91 |
+| Iron Butterfly/Condor | Expanding | 64% | 0.77 | -0.20 | -0.11 |
+| Strangle/Straddle | Expanding | 72% | 0.56 | 0.39 | 1.20 |
+| Risk Reversal | Expanding | 75% | 0.01 | -0.11 | -0.45 |
+| Bull Call Spread | Expanding | 58% | -0.14 | -0.54 | -0.70 |
+| Bear Put Spread | Expanding | 64% | -0.00 | -0.39 | -0.52 |
+| Call Ratio Spread | Expanding | 59% | -0.26 | -0.48 | -1.16 |
 
 ### Portfolio Implementation (Table 9)
-| Basket | SR net | Mean net (bps) |
-|--------|--------|----------------|
-| Top-3 by SR | **1.27** | 1.67 |
-| Top-3 by Mean | **1.17** | 2.04 |
-| All-strategies | **1.01** | 1.17 |
+| Basket | SR gross | SR net | Mean net (bps) |
+|--------|----------|--------|----------------|
+| Top-3 (by Mean or SR) | **1.12** | **0.82** | 1.36 |
+| All-strategies | 0.81 | 0.25 | 0.22 |
 
 ### Model Zoo Key Finding
 - Binary target (direction prediction) >> return target (magnitude prediction)

@@ -98,11 +98,11 @@ We study realized payoffs of S&P 500 zero-days-to-expiration (0DTE) options and 
 - Logistic benchmark with L2 regularization
 - Features: 10:00 ET implied state + lagged realized + lagged strategy PNL
 - Expanding or rolling (252-day) windows; OOS from April 2019
-- **Best individual strategies:** Put ratio spread SR ≈ 1.26; Iron butterfly SR ≈ 0.82
+- **Best individual strategies:** Put ratio spread SR gross ≈ 1.18 (net ≈ 0.93); gross–net gap reveals cost drag
 
 **§5.3 Portfolio Implementation:**
 - Equal-weight baskets of strategy-specific signals
-- **Top-3 by SR: SR ≈ 1.27** | Top-3 by mean: SR ≈ 1.17 | All-strategies: SR ≈ 1.01
+- **Top-3 basket: SR gross ≈ 1.12, net ≈ 0.82** | All-strategies: SR gross ≈ 0.81, net ≈ 0.25
 - Diversification materially smooths strategy-specific drawdowns
 
 ### §6 Conclusion
