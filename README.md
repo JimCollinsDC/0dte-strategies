@@ -6,6 +6,7 @@
 | **Author** | Grigory Vilkov (Frankfurt School of Finance & Management) |
 | **Sample** | S&P 500 SPXW 0DTE options, September 2016 – January 2026 |
 | **SSRN** | <https://ssrn.com/abstract=4641356> |
+| **Last updated** | May 2026 |
 
 ---
 
