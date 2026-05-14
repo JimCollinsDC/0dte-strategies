@@ -191,11 +191,17 @@ def compute_daily_net_pnl(strats: pd.DataFrame, opt: pd.DataFrame) -> pd.DataFra
 
     strats["half_spread_cost"] = strats.apply(calc_half_spread, axis=1)
     strats = strats.dropna(subset=["half_spread_cost"]).copy()
-    strats["pnl_net"] = strats["reth_und"].astype(float) - strats["half_spread_cost"] - 0.005
+    strats["reth_und"] = strats["reth_und"].astype(float)
+    strats["tc"] = strats["half_spread_cost"] + 0.005
+    strats["pnl_net"] = strats["reth_und"] - strats["tc"]
 
-    by_day = strats.groupby(["option_type", "quote_date"], as_index=False)["pnl_net"].mean()
-    by_day = by_day.sort_values(["option_type", "quote_date"])
-    return by_day
+    agg = strats.groupby(["option_type", "quote_date"], as_index=False).agg(
+        pnl_net=("pnl_net", "mean"),
+        reth_und=("reth_und", "mean"),
+        tc=("tc", "mean"),
+    )
+    agg = agg.sort_values(["option_type", "quote_date"])
+    return agg
 
 
 def build_feature_frame(vix: pd.DataFrame, slopes: pd.DataFrame, ex_post_file: Path) -> pd.DataFrame:
@@ -262,7 +268,7 @@ def run_protocol(
     min_train_days: int,
     rolling_window: int,
 ) -> tuple[pd.DataFrame, dict[str, float]]:
-    work = data.dropna(subset=feature_cols + ["y", "pnl_net"]).copy()
+    work = data.dropna(subset=feature_cols + ["y", "pnl_net", "reth_und", "tc"]).copy()
     work = work.sort_values("quote_date").reset_index(drop=True)
     if len(work) <= min_train_days:
         return pd.DataFrame(), {}
@@ -270,6 +276,8 @@ def run_protocol(
     X = work[feature_cols].to_numpy(dtype=float)
     y = work["y"].to_numpy(dtype=int)
     pnl = work["pnl_net"].to_numpy(dtype=float)
+    gross = work["reth_und"].to_numpy(dtype=float)
+    cost = work["tc"].to_numpy(dtype=float)
     dt = work["quote_date"].to_numpy()
 
     preds = []
@@ -303,7 +311,7 @@ def run_protocol(
                 "y": float(y[i]),
                 "sign": sign,
                 "pnl_net": pnl[i],
-                "dir_pnl_net": sign * pnl[i],
+                "dir_pnl_net": sign * gross[i] - cost[i],
             }
         )
 
@@ -421,7 +429,7 @@ def main() -> int:
     pred_store: list[pd.DataFrame] = []
     protocol_map = {"expanding": "Expanding (252d)", "rolling": "Rolling (252d)"}
     for strategy, label in STRATEGY_LABELS.items():
-        temp = daily[daily["option_type"] == strategy][["quote_date", "pnl_net"]].copy().sort_values("quote_date")
+        temp = daily[daily["option_type"] == strategy][["quote_date", "pnl_net", "reth_und", "tc"]].copy().sort_values("quote_date")
         if temp.empty:
             continue
         temp = temp.merge(feat, how="inner", on="quote_date")

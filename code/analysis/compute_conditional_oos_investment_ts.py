@@ -527,8 +527,9 @@ def main() -> int:
         if anchor_pred.empty:
             raise RuntimeError("Anchor spec produced no prediction rows.")
 
-        anchor_pred["dir_pnl_net"] = anchor_pred["sign"].astype(float) * (
-            anchor_pred["y"].astype(float) - float(args.net_cost)
+        anchor_pred["dir_pnl_net"] = (
+            anchor_pred["sign"].astype(float) * anchor_pred["y"].astype(float)
+            - float(args.net_cost)
         )
         daily = (
             anchor_pred.groupby(["quote_date", "option_type"], as_index=False)["dir_pnl_net"]
