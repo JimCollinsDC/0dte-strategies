@@ -146,6 +146,27 @@ def _half_spread_cost(strats: pd.DataFrame, opt: pd.DataFrame) -> pd.Series:
     return strats.apply(calc, axis=1)
 
 
+def _dynamic_slippage_cost(panel: pd.DataFrame, cfg: ResearchConfig) -> pd.Series:
+    # Start from baseline bps and scale up in stressed volatility/liquidity regimes.
+    base = float(cfg.slippage_bps) * 0.01
+
+    vix_ref = max(1e-6, float(cfg.slippage_vix_ref))
+    vix = pd.to_numeric(panel.get("vix", np.nan), errors="coerce").fillna(vix_ref)
+    vix_excess = np.maximum((vix - vix_ref) / vix_ref, 0.0)
+    vix_mult = 1.0 + float(cfg.slippage_vix_beta) * vix_excess
+
+    spread_proxy = pd.to_numeric(panel.get("half_spread_cost", np.nan), errors="coerce").fillna(0.0)
+    spread_mult = 1.0 + float(cfg.slippage_spread_beta) * spread_proxy
+
+    event_flag = (
+        pd.to_numeric(panel.get("is_fomc", 0), errors="coerce").fillna(0).astype(int)
+        | pd.to_numeric(panel.get("is_cpi", 0), errors="coerce").fillna(0).astype(int)
+    )
+    event_mult = np.where(event_flag > 0, float(cfg.slippage_event_mult), 1.0)
+
+    return base * vix_mult * spread_mult * event_mult
+
+
 def build_research_panel(cfg: ResearchConfig) -> tuple[pd.DataFrame, list[FeatureMeta]]:
     data_dir = cfg.data_dir
     strats = pd.read_parquet(data_dir / "data_structures.parquet")
@@ -217,8 +238,8 @@ def build_research_panel(cfg: ResearchConfig) -> tuple[pd.DataFrame, list[Featur
         panel["half_spread_cost"] = np.nan
 
     fixed_cost = float(cfg.fixed_cost_bps) * 0.01
-    slippage = float(cfg.slippage_bps) * 0.01
-    panel["tc"] = panel["half_spread_cost"].fillna(0.0) + fixed_cost + slippage
+    panel["dynamic_slippage_cost"] = _dynamic_slippage_cost(panel, cfg)
+    panel["tc"] = panel["half_spread_cost"].fillna(0.0) + fixed_cost + panel["dynamic_slippage_cost"].fillna(0.0)
     panel["ret_gross"] = panel["reth_und"].astype(float)
     panel["ret_net"] = panel["ret_gross"] - panel["tc"]
 

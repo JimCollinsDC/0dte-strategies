@@ -17,6 +17,26 @@ class ResearchConfig:
     max_hypotheses_per_feature: int = 4
     min_trades_per_hypothesis: int = 40
     max_moneyness_dev: float = 0.015
+    validation_frac: float = 0.2
+    bootstrap_samples: int = 400
+    bootstrap_block_size: int = 5
+    random_seed: int = 42
+
+    # Dynamic execution model
+    slippage_vix_ref: float = 20.0
+    slippage_vix_beta: float = 1.0
+    slippage_spread_beta: float = 1.0
+    slippage_event_mult: float = 1.5
+
+    # Risk overlays
+    risk_daily_loss_limit: float = 0.03
+    risk_cooldown_days: int = 2
+    risk_vix_hard_cap: float = 45.0
+    risk_event_scale: float = 0.5
+    turnover_cost_bps: float = 0.5
+
+    # Live-paper outputs
+    live_notional: float = 100_000.0
 
     @property
     def data_dir(self) -> Path:

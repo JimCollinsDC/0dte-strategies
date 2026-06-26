@@ -22,6 +22,20 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--rebalance-days", type=int, default=21)
     p.add_argument("--fixed-cost-bps", type=float, default=0.5)
     p.add_argument("--slippage-bps", type=float, default=0.5)
+    p.add_argument("--validation-frac", type=float, default=0.2)
+    p.add_argument("--bootstrap-samples", type=int, default=400)
+    p.add_argument("--bootstrap-block-size", type=int, default=5)
+    p.add_argument("--random-seed", type=int, default=42)
+    p.add_argument("--slippage-vix-ref", type=float, default=20.0)
+    p.add_argument("--slippage-vix-beta", type=float, default=1.0)
+    p.add_argument("--slippage-spread-beta", type=float, default=1.0)
+    p.add_argument("--slippage-event-mult", type=float, default=1.5)
+    p.add_argument("--risk-daily-loss-limit", type=float, default=0.03)
+    p.add_argument("--risk-cooldown-days", type=int, default=2)
+    p.add_argument("--risk-vix-hard-cap", type=float, default=45.0)
+    p.add_argument("--risk-event-scale", type=float, default=0.5)
+    p.add_argument("--turnover-cost-bps", type=float, default=0.5)
+    p.add_argument("--live-notional", type=float, default=100000.0)
     p.add_argument("--no-leg-spread-cost", action="store_true", default=False)
     p.add_argument("--max-moneyness-dev", type=float, default=0.015)
     p.add_argument("--min-trades", type=int, default=40)
@@ -66,6 +80,20 @@ def main() -> int:
         rebalance_days=int(args.rebalance_days),
         fixed_cost_bps=float(args.fixed_cost_bps),
         slippage_bps=float(args.slippage_bps),
+        validation_frac=float(args.validation_frac),
+        bootstrap_samples=int(args.bootstrap_samples),
+        bootstrap_block_size=int(args.bootstrap_block_size),
+        random_seed=int(args.random_seed),
+        slippage_vix_ref=float(args.slippage_vix_ref),
+        slippage_vix_beta=float(args.slippage_vix_beta),
+        slippage_spread_beta=float(args.slippage_spread_beta),
+        slippage_event_mult=float(args.slippage_event_mult),
+        risk_daily_loss_limit=float(args.risk_daily_loss_limit),
+        risk_cooldown_days=int(args.risk_cooldown_days),
+        risk_vix_hard_cap=float(args.risk_vix_hard_cap),
+        risk_event_scale=float(args.risk_event_scale),
+        turnover_cost_bps=float(args.turnover_cost_bps),
+        live_notional=float(args.live_notional),
         use_leg_spread_cost=not bool(args.no_leg_spread_cost),
         min_trades_per_hypothesis=int(args.min_trades),
         max_moneyness_dev=float(args.max_moneyness_dev),
