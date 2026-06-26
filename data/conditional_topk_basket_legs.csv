@@ -1,0 +1,13 @@
+strategy,strategy_label,mnes,leg_id,option_side,strike_m,qty,w_static,mean_sign,w_avg_signal,leg_label,rank_metric,top_k
+put_ratio_spread,Put Ratio Spread,0.995/1,1,P,0.995,-2,-0.6666666666666666,-0.20411160058737152,0.136074400391581,Put Ratio Spread | Short Put (K=0.995),mean_net_bp,3
+put_ratio_spread,Put Ratio Spread,0.995/1,2,P,1.0,1,0.3333333333333333,-0.20411160058737152,-0.0680372001957905,Put Ratio Spread | Long Put (K=1.0),mean_net_bp,3
+strangle,Strangle/Straddle,0.995/1.005,1,P,0.995,1,0.3333333333333333,-0.8269794721407625,-0.27565982404692085,Strangle/Straddle | Long Put (K=0.995),mean_net_bp,3
+strangle,Strangle/Straddle,0.995/1.005,2,C,1.005,1,0.3333333333333333,-0.8269794721407625,-0.27565982404692085,Strangle/Straddle | Long Call (K=1.005),mean_net_bp,3
+risk_reversal,Risk Reversal,0.995/1.005,1,P,0.995,-1,-0.3333333333333333,0.7096774193548387,-0.23655913978494625,Risk Reversal | Short Put (K=0.995),mean_net_bp,3
+risk_reversal,Risk Reversal,0.995/1.005,2,C,1.005,1,0.3333333333333333,0.7096774193548387,0.23655913978494625,Risk Reversal | Long Call (K=1.005),mean_net_bp,3
+put_ratio_spread,Put Ratio Spread,0.995/1,1,P,0.995,-2,-0.6666666666666666,-0.20411160058737152,0.136074400391581,Put Ratio Spread | Short Put (K=0.995),sr_net,3
+put_ratio_spread,Put Ratio Spread,0.995/1,2,P,1.0,1,0.3333333333333333,-0.20411160058737152,-0.0680372001957905,Put Ratio Spread | Long Put (K=1.0),sr_net,3
+strangle,Strangle/Straddle,0.995/1.005,1,P,0.995,1,0.3333333333333333,-0.8269794721407625,-0.27565982404692085,Strangle/Straddle | Long Put (K=0.995),sr_net,3
+strangle,Strangle/Straddle,0.995/1.005,2,C,1.005,1,0.3333333333333333,-0.8269794721407625,-0.27565982404692085,Strangle/Straddle | Long Call (K=1.005),sr_net,3
+risk_reversal,Risk Reversal,0.995/1.005,1,P,0.995,-1,-0.3333333333333333,0.7096774193548387,-0.23655913978494625,Risk Reversal | Short Put (K=0.995),sr_net,3
+risk_reversal,Risk Reversal,0.995/1.005,2,C,1.005,1,0.3333333333333333,0.7096774193548387,0.23655913978494625,Risk Reversal | Long Call (K=1.005),sr_net,3
