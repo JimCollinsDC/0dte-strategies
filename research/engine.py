@@ -233,6 +233,112 @@ def _build_live_paper_outputs(
     return daily_signal, trade_log_template, monitor
 
 
+def _build_profitability_outputs(
+    summary: pd.DataFrame,
+    signals: pd.DataFrame,
+    cfg: ResearchConfig,
+) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    if summary.empty or signals.empty:
+        empty = pd.DataFrame()
+        return empty, empty, empty
+
+    eligible = summary[
+        (summary["sharpe"].fillna(-np.inf) >= float(cfg.profit_min_sharpe))
+        & (summary["bootstrap_pvalue"].fillna(1.0) <= float(cfg.profit_max_bootstrap_pvalue))
+    ].copy()
+    if eligible.empty:
+        eligible = summary.copy()
+
+    eligible = eligible.sort_values(["sharpe", "expectancy"], ascending=False).head(int(cfg.profit_top_k))
+    selected = eligible["option_type"].astype(str).tolist()
+    if not selected:
+        empty = pd.DataFrame()
+        return empty, empty, empty
+
+    work = signals.copy()
+    work["quote_date"] = pd.to_datetime(work["quote_date"])
+    daily = (
+        work[work["option_type"].isin(selected)]
+        .groupby(["quote_date", "option_type"], observed=True, as_index=False)["strategy_ret"]
+        .mean()
+    )
+    pivot = daily.pivot(index="quote_date", columns="option_type", values="strategy_ret").sort_index().fillna(0.0)
+
+    vols = pivot.std(ddof=1).replace(0.0, np.nan)
+    score_map = eligible.set_index("option_type")
+    raw = {}
+    for s in selected:
+        sharpe = float(score_map.loc[s, "sharpe"]) if s in score_map.index else 0.0
+        pval = float(score_map.loc[s, "bootstrap_pvalue"]) if s in score_map.index else 1.0
+        quality = max(0.0, sharpe) * max(0.0, 1.0 - pval)
+        vol = float(vols.get(s, np.nan))
+        inv_vol = 0.0 if (not np.isfinite(vol) or vol <= 1e-8) else 1.0 / vol
+        raw[s] = quality * inv_vol
+
+    raw_s = pd.Series(raw, dtype=float)
+    if float(raw_s.sum()) <= 1e-12:
+        raw_s = pd.Series({s: 1.0 for s in selected}, dtype=float)
+
+    w = raw_s / raw_s.sum()
+    w = w.clip(upper=float(cfg.profit_max_weight))
+    if float(w.sum()) <= 1e-12:
+        w = pd.Series({s: 1.0 / len(selected) for s in selected}, dtype=float)
+    else:
+        w = w / w.sum()
+
+    port = pivot[selected].dot(w.reindex(selected).fillna(0.0))
+    realized_vol = float(port.std(ddof=1)) if port.shape[0] > 1 else np.nan
+    if np.isfinite(realized_vol) and realized_vol > 1e-8:
+        vol_scalar = min(2.0, float(cfg.profit_target_daily_vol) / realized_vol)
+    else:
+        vol_scalar = 1.0
+
+    port_scaled = port * vol_scalar
+    m = summarize_returns(port_scaled)
+
+    daily_out = pd.DataFrame(
+        {
+            "quote_date": port_scaled.index,
+            "portfolio_ret": port_scaled.values,
+            "cum_ret": port_scaled.cumsum().values,
+        }
+    )
+
+    weights_out = pd.DataFrame(
+        {
+            "option_type": selected,
+            "base_weight": [float(w.get(s, 0.0)) for s in selected],
+            "effective_weight": [float(w.get(s, 0.0) * vol_scalar) for s in selected],
+            "sharpe": [float(score_map.loc[s, "sharpe"]) if s in score_map.index else np.nan for s in selected],
+            "bootstrap_pvalue": [
+                float(score_map.loc[s, "bootstrap_pvalue"]) if s in score_map.index else np.nan for s in selected
+            ],
+        }
+    )
+
+    summary_out = pd.DataFrame(
+        [
+            {
+                "selected_count": int(len(selected)),
+                "selected_strategies": "|".join(selected),
+                "vol_target_daily": float(cfg.profit_target_daily_vol),
+                "vol_scalar": float(vol_scalar),
+                "portfolio_expectancy": float(m["expectancy"]),
+                "portfolio_sharpe": float(m["sharpe"]),
+                "portfolio_sortino": float(m["sortino"]),
+                "portfolio_max_drawdown": float(m["max_drawdown"]),
+                "portfolio_cvar_5": float(m["cvar_5"]),
+                "portfolio_tail_risk_es1": float(m["tail_risk_es1"]),
+                "portfolio_t_stat": float(m["t_stat"]),
+                "portfolio_n_obs": int(m["n_obs"]),
+                "portfolio_total_return": float(port_scaled.sum()),
+            }
+        ]
+    )
+
+    return summary_out, weights_out, daily_out
+
+
 def run_discovery(cfg: ResearchConfig, candidate_features: list[str]) -> dict[str, pd.DataFrame]:
     panel, feature_meta = build_research_panel(cfg)
     available = [f for f in candidate_features if f in panel.columns]
@@ -390,6 +496,7 @@ def run_discovery(cfg: ResearchConfig, candidate_features: list[str]) -> dict[st
 
     feature_df = pd.DataFrame([m.__dict__ for m in feature_meta])
     live_signal, trade_log_template, monitor = _build_live_paper_outputs(panel, sel_df, signals, cfg)
+    profitability_summary, profitability_weights, profitability_daily = _build_profitability_outputs(summary, signals, cfg)
     return {
         "panel": panel,
         "signals": signals,
@@ -401,6 +508,9 @@ def run_discovery(cfg: ResearchConfig, candidate_features: list[str]) -> dict[st
         "live_signal": live_signal,
         "trade_log_template": trade_log_template,
         "monitor": monitor,
+        "profitability_summary": profitability_summary,
+        "profitability_weights": profitability_weights,
+        "profitability_daily": profitability_daily,
     }
 
 
@@ -418,6 +528,9 @@ def save_experiment(results: dict[str, pd.DataFrame], output_dir: Path) -> dict[
         "live_signal": output_dir / f"live_signal_{stamp}.csv",
         "trade_log_template": output_dir / f"trade_log_template_{stamp}.csv",
         "monitor": output_dir / f"monitor_{stamp}.csv",
+        "profitability_summary": output_dir / f"profitability_summary_{stamp}.csv",
+        "profitability_weights": output_dir / f"profitability_weights_{stamp}.csv",
+        "profitability_daily": output_dir / f"profitability_daily_{stamp}.csv",
     }
 
     results["signals"].to_parquet(paths["signals"], index=False)
@@ -429,4 +542,7 @@ def save_experiment(results: dict[str, pd.DataFrame], output_dir: Path) -> dict[
     results["live_signal"].to_csv(paths["live_signal"], index=False)
     results["trade_log_template"].to_csv(paths["trade_log_template"], index=False)
     results["monitor"].to_csv(paths["monitor"], index=False)
+    results["profitability_summary"].to_csv(paths["profitability_summary"], index=False)
+    results["profitability_weights"].to_csv(paths["profitability_weights"], index=False)
+    results["profitability_daily"].to_csv(paths["profitability_daily"], index=False)
     return paths

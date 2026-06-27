@@ -1,0 +1,14 @@
+name,category,needs_external_data,economic_rationale,compute_cost
+vix,volatility_regime,False,Risk compensation can vary with variance state,low
+isk,skew,False,Skew dislocations can proxy crash-hedging demand,low
+overnight_gap,gap,False,Overnight inventory shocks may mean-revert intraday,low
+SPX_lret,intraday_trend,False,Short-horizon trend/mean-reversion can persist from prior sessions,low
+SPX_lrv,realized_vol,False,Vol clustering can shift intraday option risk premia,low
+slope_dn,skew,False,Put-wing steepness reflects downside demand imbalance,low
+atr14,volatility_filter,False,High ATR regimes often change execution quality and tails,medium
+price_vs_ma20,moving_average,False,Distance from trend can proxy stretched positioning,low
+mom_5d,momentum,False,Short-term continuation may alter same-day tail demand,low
+reversion_z20,mean_reversion,False,Extremes vs rolling mean can revert,low
+is_fomc,macro_event,True,Event risk reprices intraday vol/skew,low
+is_cpi,macro_event,True,Inflation release shocks vol-of-vol and skew,low
+is_opex,seasonality,False,Dealer positioning rolls around OPEX,low

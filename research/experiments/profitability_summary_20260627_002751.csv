@@ -1,0 +1,2 @@
+selected_count,selected_strategies,vol_target_daily,vol_scalar,portfolio_expectancy,portfolio_sharpe,portfolio_sortino,portfolio_max_drawdown,portfolio_cvar_5,portfolio_tail_risk_es1,portfolio_t_stat,portfolio_n_obs,portfolio_total_return
+3,bull_call_spread|iron_condor|bear_put_spread,0.01,0.13140077865565788,0.002303363912485383,3.65647685479024,6.44968276356369,-0.08288020184566594,-0.016198042566042452,-0.022727829905838846,6.098479486438664,701,1.6146581026522533

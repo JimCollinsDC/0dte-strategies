@@ -38,6 +38,13 @@ class ResearchConfig:
     # Live-paper outputs
     live_notional: float = 100_000.0
 
+    # Profitability layer
+    profit_top_k: int = 3
+    profit_min_sharpe: float = 0.75
+    profit_max_bootstrap_pvalue: float = 0.15
+    profit_target_daily_vol: float = 0.01
+    profit_max_weight: float = 0.6
+
     @property
     def data_dir(self) -> Path:
         return self.project_root / "data"

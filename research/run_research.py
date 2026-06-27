@@ -36,6 +36,11 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--risk-event-scale", type=float, default=0.5)
     p.add_argument("--turnover-cost-bps", type=float, default=0.5)
     p.add_argument("--live-notional", type=float, default=100000.0)
+    p.add_argument("--profit-top-k", type=int, default=3)
+    p.add_argument("--profit-min-sharpe", type=float, default=0.75)
+    p.add_argument("--profit-max-bootstrap-pvalue", type=float, default=0.15)
+    p.add_argument("--profit-target-daily-vol", type=float, default=0.01)
+    p.add_argument("--profit-max-weight", type=float, default=0.6)
     p.add_argument("--no-leg-spread-cost", action="store_true", default=False)
     p.add_argument("--max-moneyness-dev", type=float, default=0.015)
     p.add_argument("--min-trades", type=int, default=40)
@@ -94,6 +99,11 @@ def main() -> int:
         risk_event_scale=float(args.risk_event_scale),
         turnover_cost_bps=float(args.turnover_cost_bps),
         live_notional=float(args.live_notional),
+        profit_top_k=int(args.profit_top_k),
+        profit_min_sharpe=float(args.profit_min_sharpe),
+        profit_max_bootstrap_pvalue=float(args.profit_max_bootstrap_pvalue),
+        profit_target_daily_vol=float(args.profit_target_daily_vol),
+        profit_max_weight=float(args.profit_max_weight),
         use_leg_spread_cost=not bool(args.no_leg_spread_cost),
         min_trades_per_hypothesis=int(args.min_trades),
         max_moneyness_dev=float(args.max_moneyness_dev),
@@ -105,6 +115,10 @@ def main() -> int:
     ranked = results["ranked"]
     print("Top discovered strategies (OOS):")
     print(ranked.head(10).to_string(index=False))
+    profitability_summary = results["profitability_summary"]
+    if not profitability_summary.empty:
+        print("\nProfitability portfolio summary:")
+        print(profitability_summary.to_string(index=False))
     print("\nArtifacts:")
     for name, path in paths.items():
         print(f"- {name}: {path}")
